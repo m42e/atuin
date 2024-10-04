@@ -32,6 +32,7 @@ static APP_USER_AGENT: &str = concat!("atuin/", env!("CARGO_PKG_VERSION"),);
 pub struct Client<'a> {
     sync_addr: &'a str,
     client: reqwest::Client,
+    headers: HeaderMap,
 }
 
 pub async fn register(
@@ -182,10 +183,11 @@ impl<'a> Client<'a> {
             sync_addr,
             client: reqwest::Client::builder()
                 .user_agent(APP_USER_AGENT)
-                .default_headers(headers)
+                .default_headers(headers.clone())
                 .connect_timeout(Duration::new(connect_timeout, 0))
                 .timeout(Duration::new(timeout, 0))
                 .build()?,
+            headers
         })
     }
 
@@ -264,6 +266,13 @@ impl<'a> Client<'a> {
         let url = format!("{}/history", self.sync_addr);
         let url = Url::parse(url.as_str())?;
 
+        for (name, value) in self.headers.iter() {
+            debug!("{}: {}", name.as_str(), value.to_str().unwrap());
+        }
+        for (entry) in history {
+            debug!("entry: {}", entry.data);
+        }
+
         let resp = self.client.post(url).json(history).send().await?;
         handle_resp_error(resp).await?;
 
@@ -304,6 +313,10 @@ impl<'a> Client<'a> {
         let url = Url::parse(url.as_str())?;
 
         debug!("uploading {} records to {url}", records.len());
+
+        for (name, value) in self.headers.iter() {
+            debug!("{}: {}", name.as_str(), value.to_str().unwrap());
+        }
 
         let resp = self.client.post(url).json(records).send().await?;
         handle_resp_error(resp).await?;
